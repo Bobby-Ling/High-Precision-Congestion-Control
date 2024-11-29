@@ -1,0 +1,16 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/simulation/build"
+            ],
+            "defines": [],
+            "compilerPath": "/usr/bin/gcc",
+            "intelliSenseMode": "${default}",
+            "cppStandard": "c++11",
+            "cStandard": "c11"
+        }
+    ],
+    "version": 4
+}

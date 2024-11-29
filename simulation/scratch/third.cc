@@ -20,7 +20,7 @@
 #include <iostream>
 #include <fstream>
 #include <unordered_map>
-#include <time.h> 
+#include <time.h>
 #include "ns3/core-module.h"
 #include "ns3/qbb-helper.h"
 #include "ns3/point-to-point-helper.h"
@@ -128,13 +128,25 @@ uint32_t flow_num;
 
 void ReadFlowInput(){
 	if (flow_input.idx < flow_num){
-		flowf >> flow_input.src >> flow_input.dst >> flow_input.pg >> flow_input.dport >> flow_input.maxPacketCount >> flow_input.start_time;
+		double end_time;
+		flowf >> flow_input.src >> flow_input.dst >> flow_input.pg >> flow_input.dport >> flow_input.maxPacketCount >> flow_input.start_time >> end_time;
+		flow_input.dst = flow_input.dst >= 416 ? 415 : flow_input.dst;
+		flow_input.start_time = 0.0;
+		// flow_input.maxPacketCount = 5242880;
+		flow_input.maxPacketCount = 1280000;
+		// std::cout << ""
+		// 	<< "src: " << flow_input.src << " "
+		// 	<< "dst: " << flow_input.dst << " "
+		// 	<< "pg: " << flow_input.pg << " "
+		// 	<< "maxPacketCount: " << flow_input.maxPacketCount << " "
+		// 	<< "start_time: " << flow_input.start_time << " "
+		// 	<< "end_time: " << end_time << std::endl;
 		NS_ASSERT(n.Get(flow_input.src)->GetNodeType() == 0 && n.Get(flow_input.dst)->GetNodeType() == 0);
 	}
 }
 void ScheduleFlowInputs(){
 	while (flow_input.idx < flow_num && Seconds(flow_input.start_time) == Simulator::Now()){
-		uint32_t port = portNumder[flow_input.src][flow_input.dst]++; // get a new port number 
+		uint32_t port = portNumder[flow_input.src][flow_input.dst]++; // get a new port number
 		RdmaClientHelper clientHelper(flow_input.pg, serverAddress[flow_input.src], serverAddress[flow_input.dst], port, flow_input.dport, flow_input.maxPacketCount, has_win?(global_t==1?maxBdp:pairBdp[n.Get(flow_input.src)][n.Get(flow_input.dst)]):0, global_t==1?maxRtt:pairRtt[flow_input.src][flow_input.dst]);
 		ApplicationContainer appCon = clientHelper.Install(n.Get(flow_input.src));
 		appCon.Start(Time(0));
@@ -148,6 +160,7 @@ void ScheduleFlowInputs(){
 	if (flow_input.idx < flow_num){
 		Simulator::Schedule(Seconds(flow_input.start_time)-Simulator::Now(), ScheduleFlowInputs);
 	}else { // no more flows, close the file
+		std::cout << "no more flows, close the file\n";
 		flowf.close();
 	}
 }
@@ -464,7 +477,7 @@ int main(int argc, char *argv[])
 			{
 				std::string v;
 				conf >> v;
-				trace_output_file = v;
+				trace_output_file = v + ".bin";
 				if (argc > 2)
 				{
 					trace_output_file = trace_output_file + std::string(argv[2]);
@@ -734,6 +747,7 @@ int main(int argc, char *argv[])
 	}
 
 	NS_LOG_INFO("Create channels.");
+	std::cout << "Create channels.\n";
 
 	//
 	// Explicitly create the channels required by the topology.
@@ -814,6 +828,13 @@ int main(int argc, char *argv[])
 		// setup PFC trace
 		DynamicCast<QbbNetDevice>(d.Get(0))->TraceConnectWithoutContext("QbbPfc", MakeBoundCallback (&get_pfc, pfc_file, DynamicCast<QbbNetDevice>(d.Get(0))));
 		DynamicCast<QbbNetDevice>(d.Get(1))->TraceConnectWithoutContext("QbbPfc", MakeBoundCallback (&get_pfc, pfc_file, DynamicCast<QbbNetDevice>(d.Get(1))));
+
+		// std::cout << ""
+		// 	<< " Src: " << src
+		// 	<< " Dst: " << dst
+		// 	<< " DataRate: " << data_rate
+		// 	<< " LinkDelay: " << link_delay
+		// 	<< " ErrorRate: " << error_rate << std::endl;
 	}
 
 	nic_rate = get_nic_rate(n);
@@ -918,7 +939,7 @@ int main(int argc, char *argv[])
 			uint64_t txDelay = pairTxDelay[n.Get(i)][n.Get(j)];
 			uint64_t rtt = delay * 2 + txDelay;
 			uint64_t bw = pairBw[i][j];
-			uint64_t bdp = rtt * bw / 1000000000/8; 
+			uint64_t bdp = rtt * bw / 1000000000 / 8;
 			pairBdp[n.Get(i)][n.Get(j)] = bdp;
 			pairRtt[i][j] = rtt;
 			if (bdp > maxBdp)
@@ -976,7 +997,8 @@ int main(int argc, char *argv[])
 
 	Ipv4GlobalRoutingHelper::PopulateRoutingTables();
 
-	NS_LOG_INFO("Create Applications.");
+	NS_LOG_UNCOND("Create Applications.");
+	std::cout << "Create Applications.\n";
 
 	Time interPacketInterval = Seconds(0.0000005 / 2);
 
